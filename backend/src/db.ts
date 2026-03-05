@@ -9,6 +9,8 @@ const dbPath = path.join(dataDir, 'app.db');
 export const db = new Database(dbPath);
 
 export function migrate() {
+  // NOTE: this is a very small "migration" layer.
+  // We keep CREATE TABLE for fresh DBs, and use ALTER TABLE for existing DB upgrades.
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
@@ -42,10 +44,12 @@ export function migrate() {
       total_liabilities TEXT NOT NULL,
       net_worth TEXT NOT NULL,
       note TEXT NULL,
-      client_request_id TEXT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    -- old DBs (before 2026-03-05) may not have this column
+    ALTER TABLE snapshots ADD COLUMN client_request_id TEXT;
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_client_request_id
     ON snapshots(client_request_id)

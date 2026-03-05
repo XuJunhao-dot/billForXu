@@ -4,6 +4,7 @@ import Link from 'next/link';
 import useSWR from 'swr';
 import { useMemo, useState } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
+import { uuidv4 } from '@/lib/id';
 
 type Item = {
   id?: string;
@@ -42,7 +43,16 @@ export default function NewSnapshotPage() {
   const { data: catsAsset } = useSWR<Category[]>('/api/categories?direction=ASSET', apiGet);
   const { data: catsLiability } = useSWR<Category[]>('/api/categories?direction=LIABILITY', apiGet);
 
-  const [snapshotTime, setSnapshotTime] = useState<string>(() => new Date().toISOString());
+  const [snapshotDate, setSnapshotDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [snapshotClock, setSnapshotClock] = useState<string>(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
+  const snapshotTime = useMemo(() => {
+    // interpret as local time, store as ISO
+    const dt = new Date(`${snapshotDate}T${snapshotClock}:00`);
+    return dt.toISOString();
+  }, [snapshotDate, snapshotClock]);
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -87,6 +97,7 @@ export default function NewSnapshotPage() {
       const payload = {
         snapshotTime,
         currency: 'CNY',
+        clientRequestId: uuidv4(),
         items: items
           .filter(it => it.itemName.trim() && it.amount.trim())
           .map(it => ({
@@ -143,8 +154,17 @@ export default function NewSnapshotPage() {
 
       <div className="border rounded p-4 space-y-3">
         <div className="font-medium">快照时间</div>
-        <input className="border rounded px-3 py-2 w-full" value={snapshotTime} onChange={(e) => setSnapshotTime(e.target.value)} />
-        <div className="text-xs text-slate-500">暂用 ISO 字符串；后续可换成日期选择器。</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <div className="text-xs text-slate-600 mb-1">日期</div>
+            <input type="date" className="border rounded px-3 py-2 w-full" value={snapshotDate} onChange={(e) => setSnapshotDate(e.target.value)} />
+          </div>
+          <div>
+            <div className="text-xs text-slate-600 mb-1">时间</div>
+            <input type="time" className="border rounded px-3 py-2 w-full" value={snapshotClock} onChange={(e) => setSnapshotClock(e.target.value)} />
+          </div>
+        </div>
+        <div className="text-xs text-slate-500">会保存为 ISO（内部）：{snapshotTime}</div>
       </div>
 
       {error ? <div className="text-sm text-red-600">{error}</div> : null}

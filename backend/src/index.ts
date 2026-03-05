@@ -1,5 +1,7 @@
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { db, migrate } from './db';
 import { CreateCategory, CreateSnapshot } from './types';
 import { nowIso, uuid, parseMoneyToCents, centsToMoney } from './utils';
@@ -7,16 +9,58 @@ import { nowIso, uuid, parseMoneyToCents, centsToMoney } from './utils';
 migrate();
 
 const app = express();
-app.use(cors());
+
+// security / hardening (minimal)
+app.use(helmet());
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // allow non-browser clients
+      if (!origin) return cb(null, true);
+      const allowed = new Set([
+        'http://localhost:3000',
+        'http://127.0.0.1:3000'
+      ]);
+      return allowed.has(origin) ? cb(null, true) : cb(new Error('CORS blocked'));
+    }
+  })
+);
+app.use(
+  rateLimit({
+    windowMs: 60_000,
+    limit: 120
+  })
+);
+
 app.use(express.json({ limit: '1mb' }));
+
+class HttpError extends Error {
+  status: number;
+  details?: unknown;
+  constructor(status: number, message: string, details?: unknown) {
+    super(message);
+    this.status = status;
+    this.details = details;
+  }
+}
+
+function asyncWrap(fn: (req: Request, res: Response, next: NextFunction) => any) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
+app.get('/api/version', (_req, res) => {
+  res.json({ name: 'billForXu-api', time: nowIso() });
+});
+
 // --- Categories ---
-app.get('/api/categories', (req, res) => {
+app.get('/api/categories', asyncWrap((req, res) => {
   const direction = req.query.direction as string;
   if (direction !== 'ASSET' && direction !== 'LIABILITY') {
-    return res.status(400).json({ error: 'direction must be ASSET or LIABILITY' });
+    throw new HttpError(400, 'direction must be ASSET or LIABILITY');
   }
   const rows = db
     .prepare(
@@ -28,11 +72,11 @@ app.get('/api/categories', (req, res) => {
     )
     .all(direction);
   res.json(rows);
-});
+}));
 
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', asyncWrap((req, res) => {
   const parsed = CreateCategory.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) throw new HttpError(400, 'invalid body', parsed.error.flatten());
 
   const { direction, name, parentId = null, sortOrder } = parsed.data;
 
@@ -44,9 +88,9 @@ app.post('/api/categories', (req, res) => {
     const parent = db
       .prepare('SELECT id, level, path_ids as pathIds, path_names as pathNames FROM categories WHERE id=?')
       .get(parentId) as any;
-    if (!parent) return res.status(404).json({ error: 'parent not found' });
+    if (!parent) throw new HttpError(404, 'parent not found');
     level = parent.level + 1;
-    if (level > 4) return res.status(400).json({ error: 'max category depth is 4' });
+    if (level > 4) throw new HttpError(400, 'max category depth is 4');
     pathIds = `${parent.pathIds}/${uuid()}`;
     pathNames = `${parent.pathNames}/${name}`;
 
@@ -65,14 +109,14 @@ app.post('/api/categories', (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(id, direction, name, parentId, level, sortOrder, 1, pathIds, pathNames, t, t);
   } catch (e: any) {
-    return res.status(400).json({ error: e?.message ?? 'insert failed' });
+    throw new HttpError(400, e?.message ?? 'insert failed');
   }
 
   res.json({ id });
-});
+}));
 
 // --- Snapshots ---
-app.get('/api/snapshots', (_req, res) => {
+app.get('/api/snapshots', asyncWrap((_req, res) => {
   const rows = db
     .prepare(
       `SELECT id, snapshot_time as snapshotTime, currency, total_assets as totalAssets,
@@ -82,9 +126,9 @@ app.get('/api/snapshots', (_req, res) => {
     )
     .all();
   res.json(rows);
-});
+}));
 
-app.get('/api/snapshots/latest', (_req, res) => {
+app.get('/api/snapshots/latest', asyncWrap((_req, res) => {
   const snap = db
     .prepare(
       `SELECT id, snapshot_time as snapshotTime, currency, total_assets as totalAssets,
@@ -103,9 +147,9 @@ app.get('/api/snapshots/latest', (_req, res) => {
     )
     .all(snap.id);
   res.json({ ...snap, items });
-});
+}));
 
-app.get('/api/snapshots/:id', (req, res) => {
+app.get('/api/snapshots/:id', asyncWrap((req, res) => {
   const id = req.params.id;
   const snap = db
     .prepare(
@@ -115,7 +159,7 @@ app.get('/api/snapshots/:id', (req, res) => {
        WHERE id=?`
     )
     .get(id) as any;
-  if (!snap) return res.status(404).json({ error: 'not found' });
+  if (!snap) throw new HttpError(404, 'not found');
   const items = db
     .prepare(
       `SELECT id, direction, item_name as itemName, amount, item_type as itemType,
@@ -124,13 +168,13 @@ app.get('/api/snapshots/:id', (req, res) => {
     )
     .all(id);
   res.json({ ...snap, items });
-});
+}));
 
-app.post('/api/snapshots', (req, res) => {
+app.post('/api/snapshots', asyncWrap((req, res) => {
   const parsed = CreateSnapshot.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) throw new HttpError(400, 'invalid body', parsed.error.flatten());
 
-  const { snapshotTime, currency, note, items } = parsed.data;
+  const { snapshotTime, currency, note, clientRequestId, items } = parsed.data;
 
   // Calculate totals in cents
   let assets = 0n;
@@ -145,11 +189,32 @@ app.post('/api/snapshots', (req, res) => {
   const snapshotId = uuid();
   const t = nowIso();
 
+  // idempotency: if clientRequestId exists and already inserted, return existing record
+  if (clientRequestId) {
+    const existed = db
+      .prepare('SELECT id FROM snapshots WHERE client_request_id = ?')
+      .get(clientRequestId) as any;
+    if (existed?.id) {
+      return res.json({ id: existed.id, duplicated: true });
+    }
+  }
+
   const tx = db.transaction(() => {
     db.prepare(
-      `INSERT INTO snapshots (id, snapshot_time, currency, total_assets, total_liabilities, net_worth, note, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(snapshotId, snapshotTime, currency, centsToMoney(assets), centsToMoney(liabilities), centsToMoney(net), note ?? null, t, t);
+      `INSERT INTO snapshots (id, snapshot_time, currency, total_assets, total_liabilities, net_worth, note, client_request_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      snapshotId,
+      snapshotTime,
+      currency,
+      centsToMoney(assets),
+      centsToMoney(liabilities),
+      centsToMoney(net),
+      note ?? null,
+      clientRequestId ?? null,
+      t,
+      t
+    );
 
     const itemStmt = db.prepare(
       `INSERT INTO snapshot_items (id, snapshot_id, direction, item_name, amount, item_type, category_id, category_path, note, created_at, updated_at)
@@ -182,14 +247,14 @@ app.post('/api/snapshots', (req, res) => {
   try {
     tx();
   } catch (e: any) {
-    return res.status(400).json({ error: e?.message ?? 'insert failed' });
+    throw new HttpError(400, e?.message ?? 'insert failed');
   }
 
   res.json({ id: snapshotId });
-});
+}));
 
 // Trends: simple net worth series from snapshots
-app.get('/api/trends/net-worth', (req, res) => {
+app.get('/api/trends/net-worth', asyncWrap((req, res) => {
   const from = (req.query.from as string) ?? null;
   const to = (req.query.to as string) ?? null;
 
@@ -211,6 +276,14 @@ app.get('/api/trends/net-worth', (req, res) => {
   const rows = db.prepare(sql).all(...params) as any[];
   const currency = rows[0]?.currency ?? 'CNY';
   res.json({ from, to, currency, series: rows.map(r => ({ date: r.date, assets: r.assets, liabilities: r.liabilities, netWorth: r.netWorth })) });
+}));
+
+// error handler must be last
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err instanceof HttpError ? err.status : 500;
+  const message = err instanceof HttpError ? err.message : 'Internal Server Error';
+  const details = err instanceof HttpError ? err.details : undefined;
+  res.status(status).json({ error: message, details });
 });
 
 const port = Number(process.env.PORT ?? 8080);

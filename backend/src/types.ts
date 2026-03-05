@@ -28,8 +28,11 @@ export const SnapshotItemInput = z.object({
 });
 
 export const CreateSnapshot = z.object({
-  snapshotTime: z.string().trim().min(1),
+  // ISO string, e.g. 2026-03-05T12:00:00.000Z
+  snapshotTime: z.string().trim().datetime(),
   currency: z.string().trim().min(1).optional().default('CNY'),
   note: z.string().trim().max(2000).nullable().optional(),
+  // client-generated idempotency key to prevent accidental duplicates
+  clientRequestId: z.string().trim().min(1).optional(),
   items: z.array(SnapshotItemInput).min(1)
 });

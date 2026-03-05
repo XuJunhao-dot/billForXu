@@ -12,6 +12,7 @@ export function migrate() {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
+    PRAGMA busy_timeout = 5000;
 
     CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
@@ -41,9 +42,14 @@ export function migrate() {
       total_liabilities TEXT NOT NULL,
       net_worth TEXT NOT NULL,
       note TEXT NULL,
+      client_request_id TEXT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_client_request_id
+    ON snapshots(client_request_id)
+    WHERE client_request_id IS NOT NULL;
 
     CREATE INDEX IF NOT EXISTS idx_snapshots_time ON snapshots(snapshot_time);
 

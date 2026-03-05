@@ -15,10 +15,10 @@ type Category = {
   pathNames: string;
 };
 
-function buildTree(categories: Category[]) {
-  const byId = new Map<string, Category & { children: Category[] }>();
+function buildTree(categories: Category[]): CategoryNode[] {
+  const byId = new Map<string, CategoryNode>();
   for (const c of categories) byId.set(c.id, { ...c, children: [] });
-  const roots: (Category & { children: Category[] })[] = [];
+  const roots: CategoryNode[] = [];
   for (const c of categories) {
     const node = byId.get(c.id)!;
     if (!c.parentId) roots.push(node);
@@ -31,7 +31,9 @@ function buildTree(categories: Category[]) {
   return roots;
 }
 
-function Tree({ nodes }: { nodes: (Category & { children: Category[] })[] }) {
+type CategoryNode = Category & { children: CategoryNode[] };
+
+function Tree({ nodes }: { nodes: CategoryNode[] }) {
   return (
     <ul className="pl-4 space-y-1">
       {nodes.map((n) => (
@@ -119,7 +121,7 @@ export default function CategoriesPage() {
 
       <div className="border rounded p-4">
         <div className="font-medium mb-2">分类树</div>
-        {tree.length ? <Tree nodes={tree as any} /> : <div className="text-sm text-slate-500">暂无分类</div>}
+        {tree.length ? <Tree nodes={tree} /> : <div className="text-sm text-slate-500">暂无分类</div>}
       </div>
     </main>
   );

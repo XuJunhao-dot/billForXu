@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SummaryBar } from '@/components/SummaryBar';
-import { SketchDistribution } from '@/components/SketchDistribution';
 import { ASSET_TYPE_OPTIONS, LIABILITY_TYPE_OPTIONS, QUICK_ADD_ASSETS, QUICK_ADD_LIABILITIES } from '@/lib/presets';
 
 type Item = {
@@ -210,7 +209,6 @@ export default function NewSnapshotPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <SketchDistribution items={items as any} />
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {QUICK_ADD_ASSETS.map((q) => (

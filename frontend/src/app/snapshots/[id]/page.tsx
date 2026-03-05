@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { use } from 'react';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
+import { SketchDistribution } from '@/components/SketchDistribution';
 
 type Item = {
   id: string;
@@ -58,8 +59,16 @@ export default function SnapshotDetailPage({
             {data.note ? <div className="text-sm text-slate-600 mt-2">备注：{data.note}</div> : null}
           </div>
 
-          <div className="border rounded p-4">
-            <div className="font-medium mb-2">明细</div>
+          <div className="border rounded p-4 space-y-3">
+            <div className="font-medium">明细</div>
+            <SketchDistribution
+              items={data.items.map((it) => ({
+                direction: it.direction,
+                amount: it.amount,
+                itemName: it.itemName,
+                itemType: it.itemType
+              }))}
+            />
             <div className="space-y-2">
               {data.items.map((it) => (
                 <div key={it.id} className="border rounded p-3">

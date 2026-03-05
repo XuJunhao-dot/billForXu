@@ -26,7 +26,7 @@ export function SelectTrigger({ className, children, ...props }: SelectPrimitive
   );
 }
 
-export function SelectContent({ className, ...props }: SelectPrimitive.SelectContentProps) {
+export function SelectContent({ className, children, ...props }: SelectPrimitive.SelectContentProps) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -37,7 +37,7 @@ export function SelectContent({ className, ...props }: SelectPrimitive.SelectCon
         position="popper"
         {...props}
       >
-        <SelectPrimitive.Viewport className="p-1" />
+        <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );

@@ -1,0 +1,15 @@
+{
+  # Optional: email for Let's Encrypt
+  # email you@example.com
+}
+
+:80 {
+  encode gzip
+
+  # Frontend
+  reverse_proxy / * web:3000
+
+  # Backend API (same origin)
+  reverse_proxy /api/* api:8080
+  reverse_proxy /healthz api:8080
+}

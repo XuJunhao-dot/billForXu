@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SummaryBar } from '@/components/SummaryBar';
-import { ASSET_TYPE_OPTIONS, LIABILITY_TYPE_OPTIONS, QUICK_ADD_ASSETS } from '@/lib/presets';
+import { ASSET_TYPE_OPTIONS, LIABILITY_TYPE_OPTIONS, QUICK_ADD_ASSETS, QUICK_ADD_LIABILITIES } from '@/lib/presets';
 
 type Item = {
   id?: string;
@@ -209,13 +209,21 @@ export default function NewSnapshotPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {QUICK_ADD_ASSETS.map((q) => (
-                <Button key={q.itemName + q.itemType} size="sm" onClick={() => addItem('ASSET', { itemName: q.itemName, itemType: q.itemType })}>
-                  + {q.itemName}
-                </Button>
-              ))}
-              <Button size="sm" variant="secondary" onClick={() => addItem('LIABILITY')}>+ 负债</Button>
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {QUICK_ADD_ASSETS.map((q) => (
+                  <Button key={q.itemName + q.itemType} size="sm" onClick={() => addItem('ASSET', { itemName: q.itemName, itemType: q.itemType })}>
+                    + {q.itemName}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_ADD_LIABILITIES.map((q) => (
+                  <Button key={q.itemName + q.itemType} size="sm" variant="secondary" onClick={() => addItem('LIABILITY', { itemName: q.itemName, itemType: q.itemType })}>
+                    + {q.itemName}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-3">

@@ -35,7 +35,14 @@ export const QUICK_ADD_ASSETS: { itemType: AssetType; itemName: string }[] = [
   { itemType: 'TIME_DEPOSIT', itemName: '定期存款' },
   { itemType: 'FIXED_INCOME', itemName: '固收理财' },
   { itemType: 'OTC_FUND', itemName: '场外基金' },
-  { itemType: 'ETF', itemName: 'ETF' },
+  { itemType: 'ETF', itemName: '场内ETF' },
   { itemType: 'STOCK', itemName: '股票' },
   { itemType: 'FX', itemName: '外汇' }
+];
+
+export const QUICK_ADD_LIABILITIES: { itemType: LiabilityType; itemName: string }[] = [
+  { itemType: 'CREDIT_CARD', itemName: '信用卡' },
+  { itemType: 'CONSUMER_LOAN', itemName: '消费贷/网贷' },
+  { itemType: 'MORTGAGE', itemName: '房贷' },
+  { itemType: 'CAR_LOAN', itemName: '车贷' }
 ];

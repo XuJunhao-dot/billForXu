@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+import { use } from 'react';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
-import Link from 'next/link';
 
 type Item = {
   id: string;
@@ -26,8 +27,14 @@ type SnapshotDetail = {
   items: Item[];
 };
 
-export default function SnapshotDetailPage({ params }: { params: { id: string } }) {
-  const { data, error, isLoading } = useSWR<SnapshotDetail>(`/api/snapshots/${params.id}`, apiGet);
+// Next.js sync dynamic APIs: params in client may be a Promise.
+export default function SnapshotDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }> | { id: string };
+}) {
+  const { id } = typeof (params as any)?.then === 'function' ? use(params as Promise<{ id: string }>) : (params as { id: string });
+  const { data, error, isLoading } = useSWR<SnapshotDetail>(`/api/snapshots/${id}`, apiGet);
 
   return (
     <main className="p-6 max-w-3xl mx-auto space-y-4">

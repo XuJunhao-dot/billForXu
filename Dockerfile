@@ -1,6 +1,6 @@
 # billForXu all-in-one image: Caddy(:80) + API(:8080) + Web(:3000)
 
-FROM mirror.ccs.tencentyun.com/library/node:20-alpine AS deps
+FROM docker.m.daocloud.io/library/node:20-alpine AS deps
 WORKDIR /app
 
 # backend deps
@@ -11,7 +11,7 @@ RUN cd backend && npm ci
 COPY frontend/package.json frontend/package-lock.json* ./frontend/
 RUN cd frontend && npm ci
 
-FROM mirror.ccs.tencentyun.com/library/node:20-alpine AS builder
+FROM docker.m.daocloud.io/library/node:20-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/backend/node_modules ./backend/node_modules
@@ -23,9 +23,9 @@ COPY frontend ./frontend
 RUN cd backend && npm run build
 RUN cd frontend && npm run build
 
-FROM mirror.ccs.tencentyun.com/library/caddy:2-alpine AS caddy
+FROM docker.m.daocloud.io/library/caddy:2-alpine AS caddy
 
-FROM mirror.ccs.tencentyun.com/library/node:20-alpine AS runner
+FROM docker.m.daocloud.io/library/node:20-alpine AS runner
 WORKDIR /app
 
 # install runtime packages

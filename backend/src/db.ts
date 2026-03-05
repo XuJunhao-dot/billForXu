@@ -8,14 +8,25 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const dbPath = path.join(dataDir, 'app.db');
 export const db = new Database(dbPath);
 
+function hasColumn(table: string, column: string): boolean {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as any[];
+  return rows.some((r) => r.name === column);
+}
+
 export function migrate() {
-  // NOTE: this is a very small "migration" layer.
-  // We keep CREATE TABLE for fresh DBs, and use ALTER TABLE for existing DB upgrades.
+  // Minimal migration layer:
+  // - CREATE TABLE for fresh DB
+  // - conditional ALTER for existing DB upgrades
+
+  // Connection pragmas
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
     PRAGMA busy_timeout = 5000;
+  `);
 
+  // Base schema
+  db.exec(`
     CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
       direction TEXT NOT NULL CHECK(direction IN ('ASSET','LIABILITY')),
@@ -32,7 +43,7 @@ export function migrate() {
     );
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_unique_sibling
-    ON categories(parent_id, direction, name);
+      ON categories(parent_id, direction, name);
 
     CREATE INDEX IF NOT EXISTS idx_categories_direction ON categories(direction);
 
@@ -47,13 +58,6 @@ export function migrate() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-
-    -- old DBs (before 2026-03-05) may not have this column
-    ALTER TABLE snapshots ADD COLUMN client_request_id TEXT;
-
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_client_request_id
-    ON snapshots(client_request_id)
-    WHERE client_request_id IS NOT NULL;
 
     CREATE INDEX IF NOT EXISTS idx_snapshots_time ON snapshots(snapshot_time);
 
@@ -76,5 +80,16 @@ export function migrate() {
     CREATE INDEX IF NOT EXISTS idx_items_snapshot ON snapshot_items(snapshot_id);
     CREATE INDEX IF NOT EXISTS idx_items_direction ON snapshot_items(direction);
     CREATE INDEX IF NOT EXISTS idx_items_category ON snapshot_items(category_id);
+  `);
+
+  // Conditional upgrade: add client_request_id
+  if (!hasColumn('snapshots', 'client_request_id')) {
+    db.exec(`ALTER TABLE snapshots ADD COLUMN client_request_id TEXT;`);
+  }
+
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_client_request_id
+      ON snapshots(client_request_id)
+      WHERE client_request_id IS NOT NULL;
   `);
 }

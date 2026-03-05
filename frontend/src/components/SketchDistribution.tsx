@@ -60,10 +60,14 @@ export function SketchDistribution({ items }: { items: Item[] }) {
 
     if (!data.total || data.labels.length === 0) return;
 
-    // Make room for legend & avoid cropping: set explicit size.
+    // Make room & avoid cropping:
+    // - on mobile we keep the chart compact and rely on the list below
+    // - on desktop we allow a wider canvas for legend
     const container = ref.current.parentElement;
-    const w = Math.max(720, container?.clientWidth ?? 720);
-    const h = 420;
+    const cw = container?.clientWidth ?? 360;
+    const isMobile = cw < 520;
+    const w = isMobile ? 420 : Math.max(720, cw);
+    const h = isMobile ? 300 : 420;
     ref.current.setAttribute('width', String(w));
     ref.current.setAttribute('height', String(h));
 
@@ -75,8 +79,9 @@ export function SketchDistribution({ items }: { items: Item[] }) {
         datasets: [{ data: data.values }]
       },
       options: {
-        innerRadius: 0.35,
-        legendPosition: chartXkcd.config.positionType.upRight
+        innerRadius: isMobile ? 0.25 : 0.35,
+        // On mobile, legend takes too much space and hurts readability.
+        legendPosition: isMobile ? chartXkcd.config.positionType.downRight : chartXkcd.config.positionType.upRight
       }
     });
 
@@ -109,7 +114,7 @@ export function SketchDistribution({ items }: { items: Item[] }) {
       <div className="text-xs text-slate-600 mb-2">图例为“资产名称”，悬浮可看金额与占比（手绘风格）。</div>
 
       <div className="w-full overflow-x-auto">
-        <svg ref={ref} style={{ minWidth: 720, width: '100%', height: 420, overflow: 'visible' }} />
+        <svg ref={ref} className="block" style={{ width: '100%', height: 'auto', overflow: 'visible' }} />
       </div>
 
       {data.total ? (

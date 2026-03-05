@@ -71,16 +71,19 @@ export function SketchDistribution({ items }: { items: Item[] }) {
     ref.current.setAttribute('width', String(w));
     ref.current.setAttribute('height', String(h));
 
+    // On mobile we hide the built-in legend (it overlaps the pie).
+    // Users can read the breakdown from the list below.
+    const chartLabels = isMobile ? data.labels.map(() => '') : data.labels;
+
     // eslint-disable-next-line new-cap
     new chartXkcd.Pie(ref.current, {
       title: '资产分布',
       data: {
-        labels: data.labels,
+        labels: chartLabels,
         datasets: [{ data: data.values }]
       },
       options: {
         innerRadius: isMobile ? 0.25 : 0.35,
-        // On mobile, legend takes too much space and hurts readability.
         legendPosition: isMobile ? chartXkcd.config.positionType.downRight : chartXkcd.config.positionType.upRight
       }
     });

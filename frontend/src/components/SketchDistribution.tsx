@@ -88,26 +88,29 @@ export function SketchDistribution({ items }: { items: Item[] }) {
       }
     });
 
-    // Add simple hover tooltips (native title) with "amount + percent".
-    // chart.xkcd renders SVG paths; we attach title to filled paths.
-    const paths = Array.from(ref.current.querySelectorAll('path'))
-      .filter((p) => {
-        const fill = p.getAttribute('fill');
-        return fill && fill !== 'none';
-      });
+    // Tooltips:
+    // - Desktop: use native SVG <title> on slices (hover)
+    // - Mobile: disable tooltips (tap tends to show random <title> and feels noisy)
+    if (!isMobile) {
+      const paths = Array.from(ref.current.querySelectorAll('path'))
+        .filter((p) => {
+          const fill = p.getAttribute('fill');
+          return fill && fill !== 'none';
+        });
 
-    const total = data.total;
-    for (let i = 0; i < Math.min(paths.length, data.pairs.length); i++) {
-      const { label, value } = data.pairs[i];
-      const percent = total > 0 ? (value / total) * 100 : 0;
-      const title = `${label}\n金额：${fmtMoney(value)}\n占比：${percent.toFixed(1)}%`;
+      const total = data.total;
+      for (let i = 0; i < Math.min(paths.length, data.pairs.length); i++) {
+        const { label, value } = data.pairs[i];
+        const percent = total > 0 ? (value / total) * 100 : 0;
+        const title = `${label}\n金额：${fmtMoney(value)}\n占比：${percent.toFixed(1)}%`;
 
-      // Remove old title if any
-      const old = paths[i].querySelector('title');
-      if (old) old.remove();
-      const t = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-      t.textContent = title;
-      paths[i].appendChild(t);
+        // Remove old title if any
+        const old = paths[i].querySelector('title');
+        if (old) old.remove();
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        t.textContent = title;
+        paths[i].appendChild(t);
+      }
     }
   }, [data]);
 

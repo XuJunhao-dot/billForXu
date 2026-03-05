@@ -43,6 +43,7 @@ type LatestSnapshot = {
 type Category = {
   id: string;
   direction: 'ASSET' | 'LIABILITY';
+  name: string;
   pathNames: string;
   isLeaf: 0 | 1;
 };
@@ -147,10 +148,44 @@ export default function NewSnapshotPage() {
     setItems(prev => prev.filter((_, i) => i !== idx));
   }
 
-  const categoryOptions = (dir: 'ASSET' | 'LIABILITY') => {
+  const categoryOptions = (dir: 'ASSET' | 'LIABILITY', itemType?: string) => {
     const list = dir === 'ASSET' ? (catsAsset ?? []) : (catsLiability ?? []);
-    return list.filter(c => c.isLeaf === 1);
+    const leaves = list.filter(c => c.isLeaf === 1);
+
+    // Scheme A: for ETF assets, categories should be children under "资产/场内ETF/..."
+    if (dir === 'ASSET' && itemType === 'ETF') {
+      const etfParent = list.find(c => c.name === '场内ETF');
+      const prefix = etfParent?.pathNames ? `${etfParent.pathNames}/` : '资产/场内ETF/';
+      return leaves.filter(c => (c.pathNames ?? '').startsWith(prefix));
+    }
+
+    return leaves;
   };
+
+  async function quickAddEtfLeaf(idx: number) {
+    const name = window.prompt('新增 ETF（建议写代码+名称，如：510300 沪深300ETF）');
+    if (!name || !name.trim()) return;
+
+    const list = catsAsset ?? [];
+    const parent = list.find(c => c.name === '场内ETF');
+    if (!parent) {
+      setError('未找到“场内ETF”分类。请先到“分类管理→资产”里创建一个根分类：场内ETF');
+      return;
+    }
+
+    try {
+      const resp = await apiPost<{ id: string }>('/api/categories', {
+        direction: 'ASSET',
+        name: name.trim(),
+        parentId: parent.id,
+        sortOrder: 0
+      });
+      updateItem(idx, { categoryId: resp.id });
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    }
+  }
+
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -263,18 +298,29 @@ export default function NewSnapshotPage() {
                       </div>
 
                       <div className="sm:col-span-7">
-                        <select
-                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                          value={it.categoryId ?? ''}
-                          onChange={(e) => updateItem(idx, { categoryId: e.target.value ? e.target.value : null })}
-                        >
-                          <option value="">（未分类）</option>
-                          {categoryOptions(it.direction).map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.pathNames}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="space-y-1">
+                          <select
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                            value={it.categoryId ?? ''}
+                            onChange={(e) => updateItem(idx, { categoryId: e.target.value ? e.target.value : null })}
+                          >
+                            <option value="">（未分类）</option>
+                            {categoryOptions(it.direction, it.itemType).map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.pathNames}
+                              </option>
+                            ))}
+                          </select>
+                          {it.direction === 'ASSET' && it.itemType === 'ETF' ? (
+                            <button
+                              type="button"
+                              className="text-xs text-indigo-700 hover:underline"
+                              onClick={() => quickAddEtfLeaf(idx)}
+                            >
+                              + 新增一只 ETF（添加到“场内ETF”分类下）
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="sm:col-span-4">
                         <Input placeholder="备注（可选）" value={it.note ?? ''} onChange={(e) => updateItem(idx, { note: e.target.value })} />

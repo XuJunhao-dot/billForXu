@@ -14,6 +14,11 @@ RUN cd frontend && npm ci
 FROM docker.m.daocloud.io/library/node:20-alpine AS builder
 WORKDIR /app
 
+# reduce build memory usage (colima default memory is small)
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_DISABLE_TURBOPACK=1 \
+    NODE_OPTIONS=--max-old-space-size=1024
+
 COPY --from=deps /app/backend/node_modules ./backend/node_modules
 COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
 
@@ -23,13 +28,13 @@ COPY frontend ./frontend
 RUN cd backend && npm run build
 RUN cd frontend && npm run build
 
-FROM docker.m.daocloud.io/library/caddy:2-alpine AS caddy
-
 FROM docker.m.daocloud.io/library/node:20-alpine AS runner
 WORKDIR /app
 
-# install runtime packages
-RUN apk add --no-cache caddy supervisor
+# runtime packages
+# - switch apk repo mirror to improve reliability in CN networks
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+  && apk add --no-cache supervisor caddy
 
 # copy built apps
 COPY --from=builder /app/backend ./backend

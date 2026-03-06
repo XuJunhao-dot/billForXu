@@ -10,6 +10,9 @@ migrate();
 
 const app = express();
 
+// behind reverse proxy (caddy / ingress)
+app.set('trust proxy', 1);
+
 // security / hardening (minimal)
 app.use(helmet());
 app.use(

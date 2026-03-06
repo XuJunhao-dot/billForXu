@@ -7,6 +7,12 @@ ARG TARGETPLATFORM
 FROM --platform=$TARGETPLATFORM docker.m.daocloud.io/library/node:20-alpine AS deps
 WORKDIR /app
 
+# Native deps for better-sqlite3 (build from source for the target arch)
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+  && apk add --no-cache python3 make g++
+
+ENV npm_config_build_from_source=true
+
 # backend deps
 COPY backend/package.json backend/package-lock.json* ./backend/
 RUN cd backend && npm ci
